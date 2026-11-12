@@ -1,0 +1,12 @@
+{
+  "title": "CHE 111 Demo Test",
+  "durationMinutes": 10,
+  "maxIncidents": 3,
+  "questions": [
+    { "q": "What is the SI unit of amount of substance?", "options": ["Gram", "Mole", "Litre", "Kelvin"], "answer": 1 },
+    { "q": "Which particle has a negative charge?", "options": ["Proton", "Neutron", "Electron", "Nucleus"], "answer": 2 },
+    { "q": "What is the pH of a neutral solution at 25 °C?", "options": ["0", "1", "7", "14"], "answer": 2 },
+    { "q": "Which gas is produced when zinc reacts with dilute HCl?", "options": ["Oxygen", "Hydrogen", "Chlorine", "Carbon dioxide"], "answer": 1 },
+    { "q": "Avogadro's number is approximately:", "options": ["6.02 × 10^23", "3.00 × 10^8", "1.60 × 10^-19", "9.81"], "answer": 0 }
+  ]
+}
