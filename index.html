@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0b3d2e">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>SNAS Exam Guard</title>
+<style>
+  :root{--g:#0b3d2e;--g2:#14684d;--red:#c62828;--bg:#f3f6f4;--ink:#1b1f1d}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  header{background:var(--g);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+  header h1{font-size:17px;margin:0;flex:1}
+  #timer{font-variant-numeric:tabular-nums;font-weight:700;background:#ffffff22;padding:4px 10px;border-radius:8px}
+  .screen{display:none;padding:18px;max-width:640px;margin:0 auto}
+  .screen.on{display:block}
+  .card{background:#fff;border-radius:14px;padding:18px;box-shadow:0 2px 10px #0001;margin-bottom:14px}
+  label{display:block;font-weight:600;margin:12px 0 6px}
+  input{width:100%;padding:12px;font-size:16px;border:1px solid #bbb;border-radius:10px}
+  button{font-size:16px;padding:14px 18px;border:0;border-radius:12px;cursor:pointer;font-weight:700}
+  .btn{background:var(--g2);color:#fff;width:100%;margin-top:16px}
+  .btn:disabled{opacity:.5}
+  .btn2{background:#e3ece8;color:var(--g)}
+  .note{font-size:14px;color:#555;line-height:1.5}
+  .status{font-size:14px;margin-top:10px;padding:10px;border-radius:10px;background:#eef5f1}
+  /* exam */
+  #qwrap{position:relative;overflow:hidden}
+  #qnum{font-size:14px;color:#666;margin-bottom:6px}
+  #qtext{font-size:19px;font-weight:600;line-height:1.45;margin-bottom:14px}
+  .opt{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;background:#f4f7f5;border:2px solid #dde5e0;
+       margin:8px 0;padding:14px;border-radius:12px;font-size:17px;font-weight:500;color:var(--ink)}
+  .opt b{min-width:24px}
+  .opt.sel{border-color:var(--g2);background:#dff1e8}
+  #nav{display:flex;gap:10px;margin-top:10px}
+  #nav button{flex:1}
+  #dots{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+  #dots span{width:30px;height:30px;border-radius:8px;background:#e3e8e5;display:flex;align-items:center;justify-content:center;font-size:13px}
+  #dots span.a{background:#9fd3b8}#dots span.c{outline:2px solid var(--g)}
+  .wm{position:absolute;inset:-50%;pointer-events:none;display:flex;flex-wrap:wrap;align-content:flex-start;gap:40px 60px;
+      transform:rotate(-28deg);opacity:.09;font-size:15px;font-weight:700;color:#000;z-index:2}
+  /* camera preview */
+  #pip{position:fixed;right:10px;bottom:10px;width:96px;height:128px;border-radius:12px;overflow:hidden;border:3px solid #2e7d32;
+       z-index:20;background:#000;display:none}
+  #pip.bad{border-color:var(--red)}
+  #pip video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  #pipLbl{position:absolute;left:0;right:0;bottom:0;font-size:10px;text-align:center;background:#000a;color:#fff;padding:2px}
+  /* shield */
+  #shield{position:fixed;inset:0;background:#b71c1cf2;color:#fff;z-index:30;display:none;flex-direction:column;
+          align-items:center;justify-content:center;text-align:center;padding:30px}
+  #shield.on{display:flex}
+  #shield h2{font-size:26px;margin:10px 0}
+  #shield p{font-size:17px;line-height:1.5}
+  .big{font-size:60px}
+  #warnCount{margin-top:14px;font-weight:700;background:#0003;padding:8px 14px;border-radius:10px}
+  /* results */
+  .inc{display:flex;gap:10px;align-items:center;border-top:1px solid #eee;padding:8px 0;font-size:14px}
+  .inc img{width:72px;height:96px;object-fit:cover;border-radius:6px;background:#000}
+  .score{font-size:40px;font-weight:800;color:var(--g)}
+</style>
+</head>
+<body oncontextmenu="return false">
+<header><h1 id="title">SNAS Exam Guard</h1><span id="timer" hidden>--:--</span></header>
+
+<!-- 1. Sign in -->
+<section class="screen on" id="s-login">
+  <div class="card">
+    <h2 style="margin-top:0" id="quizTitle">Loading assessment…</h2>
+    <p class="note" id="quizInfo"></p>
+    <label for="nm">Full name</label><input id="nm" autocomplete="off">
+    <label for="sid">Student ID</label><input id="sid" inputmode="numeric" autocomplete="off">
+    <button class="btn" id="goCam" disabled>Next: turn on camera</button>
+  </div>
+  <div class="card note">
+    <b>Rules.</b> The front camera stays on for the whole test and watches for another phone or camera pointed at this screen.
+    Keep your face in view and do not cover the camera. Do not leave the app. Every incident is recorded with a photo,
+    and the test is submitted automatically after <b id="maxInc">3</b> incidents.
+  </div>
+</section>
+
+<!-- 2. Camera check -->
+<section class="screen" id="s-cam">
+  <div class="card">
+    <h2 style="margin-top:0">Camera check</h2>
+    <p class="note">Allow camera access when asked. Hold the phone normally with your face in view.</p>
+    <div class="status" id="camStatus">Starting camera…</div>
+    <button class="btn" id="startExam" disabled>Start test</button>
+  </div>
+</section>
+
+<!-- 3. Exam -->
+<section class="screen" id="s-exam">
+  <div class="card" id="qwrap">
+    <div class="wm" id="wm"></div>
+    <div style="position:relative;z-index:3">
+      <div id="qnum"></div>
+      <div id="qtext"></div>
+      <div id="opts"></div>
+    </div>
+  </div>
+  <div id="nav"><button class="btn2" id="prev">◀ Back</button><button class="btn2" id="next">Next ▶</button></div>
+  <button class="btn" id="submit" style="background:var(--g)">Submit test</button>
+  <div id="dots"></div>
+</section>
+
+<!-- 4. Results -->
+<section class="screen" id="s-done">
+  <div class="card" style="text-align:center">
+    <h2 style="margin-top:0">Test submitted</h2>
+    <div class="score" id="score"></div>
+    <p class="note" id="doneInfo"></p>
+    <button class="btn" id="dl">Download report for lecturer</button>
+  </div>
+  <div class="card"><h3 style="margin-top:0">Incident log</h3><div id="incList"></div></div>
+</section>
+
+<div id="pip"><video id="vid" playsinline muted autoplay></video><div id="pipLbl">Camera on</div></div>
+<div id="shield"><div class="big" id="shIcon">📵</div><h2 id="shTitle">Phone detected</h2>
+  <p id="shMsg">Another phone or camera is pointed at this screen. The questions are hidden and this incident has been recorded.</p>
+  <div id="warnCount"></div></div>
+<canvas id="cv" hidden></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script>
+/* ================= SETTINGS ================= */
+const CFG = {
+  phoneScore: 0.50,      // confidence needed to call it a phone
+  phoneFrames: 2,        // consecutive frames before it counts
+  noFaceSeconds: 6,      // student out of view / camera covered this long = incident
+  darkLevel: 22,         // mean brightness (0-255) below this = camera covered
+  cooldownMs: 6000,      // gap between two incidents of the same kind
+  scanMs: 350            // how often the camera is checked
+};
+
+/* ================= STATE ================= */
+const $ = id => document.getElementById(id);
+let QUIZ=null, ORDER=[], answers=[], cur=0, endAt=0, tick=null;
+let model=null, stream=null, running=false, finished=false;
+let phoneStreak=0, lastSeenPerson=Date.now(), lastInc={}, shieldReasons=new Set();
+const incidents=[]; let student={};
+
+/* ================= LOAD QUIZ ================= */
+// Lecturer: put questions in questions.json, or link to another file: index.html?quiz=che251-test1.json
+(async function(){
+  const f = new URLSearchParams(location.search).get('quiz') || 'questions.json';
+  try{
+    QUIZ = await (await fetch(f,{cache:'no-store'})).json();
+    $('quizTitle').textContent = QUIZ.title || 'Assessment';
+    $('title').textContent = QUIZ.title || 'SNAS Exam Guard';
+    $('quizInfo').textContent = `${QUIZ.questions.length} questions · ${QUIZ.durationMinutes} minutes`;
+    $('maxInc').textContent = QUIZ.maxIncidents ?? 3;
+    $('goCam').disabled=false;
+  }catch(e){ $('quizTitle').textContent='Could not load the assessment file ('+f+').'; }
+})();
+
+/* ================= HELPERS ================= */
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id===id));}
+function seeded(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=h<<13|h>>>19;}
+  return ()=>{h=Math.imul(h^h>>>16,2246822507);h=Math.imul(h^h>>>13,3266489909);return((h^=h>>>16)>>>0)/4294967296;};}
+function shuffle(a,r){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function fmt(ms){ms=Math.max(0,ms);const m=Math.floor(ms/60000),s=Math.floor(ms%60000/1000);return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}
+const L='ABCDEFGH';
+
+/* ================= STEP 1 → 2 ================= */
+$('goCam').onclick = async ()=>{
+  student={name:$('nm').value.trim(), id:$('sid').value.trim()};
+  if(!student.name||!student.id){alert('Enter your full name and student ID.');return;}
+  show('s-cam'); await startCamera();
+};
+
+async function startCamera(){
+  const st=$('camStatus');
+  if(!navigator.mediaDevices?.getUserMedia){st.textContent='This browser cannot use the camera. Open the link in Chrome.';return;}
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});
+  }catch(e){st.innerHTML='⛔ Camera permission was refused. The test cannot start without the front camera.<br>Allow camera access in the browser settings and reload.';return;}
+  const v=$('vid'); v.srcObject=stream; await v.play().catch(()=>{});
+  $('pip').style.display='block';
+  stream.getVideoTracks()[0].addEventListener('ended',()=>incident('camera','Camera was switched off',true));
+  st.textContent='Camera on. Loading the phone-detection model (first time can take ~20 s)…';
+  try{ model = await cocoSsd.load({base:'lite_mobilenet_v2'}); }
+  catch(e){st.textContent='⛔ Could not load the detection model. Check the internet connection and reload.';return;}
+  st.textContent='✅ Ready. Your face is visible and the camera is working.';
+  $('startExam').disabled=false;
+  running=true; scan();
+}
+
+/* ================= DETECTION LOOP ================= */
+async function scan(){
+  if(!running) return;
+  const v=$('vid');
+  try{
+    if(v.readyState>=2){
+      const preds = await model.detect(v, 10, 0.3);
+      const phone = preds.find(p=>p.class==='cell phone'&&p.score>=CFG.phoneScore);
+      const person = preds.some(p=>p.class==='person'&&p.score>=0.45);
+      const dark = brightness(v) < CFG.darkLevel;
+      const now=Date.now();
+
+      // 1. phone / camera device in front of the screen
+      phoneStreak = phone ? phoneStreak+1 : 0;
+      setShield('phone', phoneStreak>=CFG.phoneFrames);
+      if(phoneStreak>=CFG.phoneFrames) incident('phone',`Phone detected in front of screen (${Math.round(phone.score*100)}% sure)`,false,phone.bbox);
+
+      // 2. camera covered or student out of view
+      if(person && !dark) lastSeenPerson=now;
+      const gone = now-lastSeenPerson > CFG.noFaceSeconds*1000;
+      setShield(dark?'dark':'gone', gone);
+      if(!gone){shieldReasons.delete('dark');shieldReasons.delete('gone');}
+      if(gone) incident(dark?'dark':'gone', dark?'Front camera covered / too dark':'Student not visible to front camera');
+      $('pip').classList.toggle('bad', !!phone || gone);
+      $('pipLbl').textContent = phone?'PHONE!':gone?'Not visible':'Camera on';
+      refreshShield();
+    }
+  }catch(e){ console.warn(e); }
+  setTimeout(scan, CFG.scanMs);
+}
+function brightness(v){
+  const c=$('cv'); c.width=32; c.height=24; const x=c.getContext('2d',{willReadFrequently:true});
+  x.drawImage(v,0,0,32,24); const d=x.getImageData(0,0,32,24).data; let s=0;
+  for(let i=0;i<d.length;i+=4) s+=d[i]*.3+d[i+1]*.59+d[i+2]*.11; return s/(d.length/4);
+}
+function snapshot(bbox){
+  const v=$('vid'), c=document.createElement('canvas'); c.width=240; c.height=Math.round(240*v.videoHeight/v.videoWidth)||320;
+  const x=c.getContext('2d'); x.drawImage(v,0,0,c.width,c.height);
+  if(bbox){const k=c.width/v.videoWidth; x.strokeStyle='#ff1744'; x.lineWidth=4; x.strokeRect(bbox[0]*k,bbox[1]*k,bbox[2]*k,bbox[3]*k);}
+  return c.toDataURL('image/jpeg',0.7);
+}
+
+/* ================= INCIDENTS ================= */
+function incident(kind,msg,force=false,bbox=null){
+  if(finished || !$('s-exam').classList.contains('on')) return;
+  const now=Date.now();
+  if(!force && lastInc[kind] && now-lastInc[kind]<CFG.cooldownMs) return;
+  lastInc[kind]=now;
+  incidents.push({time:new Date().toLocaleTimeString(), question:cur+1, msg, img: stream?snapshot(bbox):null});
+  const max = QUIZ.maxIncidents ?? 3;
+  $('warnCount').textContent = `Incident ${incidents.length} of ${max}`;
+  if(navigator.vibrate) navigator.vibrate([200,100,200]);
+  if(max>0 && incidents.length>=max){ submit('Auto-submitted: too many incidents'); }
+}
+function setShield(r,on){ on?shieldReasons.add(r):shieldReasons.delete(r); }
+function refreshShield(){
+  if(finished){$('shield').classList.remove('on');return;}
+  const on = $('s-exam').classList.contains('on') && shieldReasons.size>0;
+  $('shield').classList.toggle('on',on);
+  if(!on) return;
+  if(shieldReasons.has('phone')){$('shIcon').textContent='📵';$('shTitle').textContent='Phone detected';
+    $('shMsg').textContent='Another phone or camera is pointed at this screen. The questions are hidden and this incident has been recorded.';}
+  else {$('shIcon').textContent='🙈';$('shTitle').textContent='Camera cannot see you';
+    $('shMsg').textContent='Uncover the front camera and keep your face in view to continue. This has been recorded.';}
+}
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) incident('left','Left the app / switched to another app',true); });
+window.addEventListener('blur',()=>incident('blur','App lost focus (pop-up, notification or split screen)'));
+['copy','cut','paste'].forEach(e=>document.addEventListener(e,ev=>ev.preventDefault()));
+
+/* ================= EXAM ================= */
+$('startExam').onclick=()=>{
+  const r=seeded(student.id+'|'+(QUIZ.title||''));
+  ORDER = shuffle(QUIZ.questions.map((q,i)=>i), r).map(i=>({i, opts:shuffle(QUIZ.questions[i].options.map((o,k)=>k), r)}));
+  answers = new Array(ORDER.length).fill(null);
+  $('wm').innerHTML = Array(90).fill(`<span>${student.name} · ${student.id}</span>`).join('');
+  endAt = Date.now()+QUIZ.durationMinutes*60000; $('timer').hidden=false;
+  tick=setInterval(()=>{const left=endAt-Date.now(); $('timer').textContent=fmt(left); if(left<=0) submit('Time up');},500);
+  lastSeenPerson=Date.now(); show('s-exam'); render();
+  document.documentElement.requestFullscreen?.().catch(()=>{});
+};
+function render(){
+  const o=ORDER[cur], q=QUIZ.questions[o.i];
+  $('qnum').textContent=`Question ${cur+1} of ${ORDER.length}`;
+  $('qtext').textContent=q.q;
+  $('opts').innerHTML='';
+  o.opts.forEach((k,pos)=>{const b=document.createElement('button');b.className='opt'+(answers[cur]===k?' sel':'');
+    b.innerHTML=`<b>${L[pos]}.</b><span></span>`; b.lastChild.textContent=q.options[k];
+    b.onclick=()=>{answers[cur]=k;render();}; $('opts').appendChild(b);});
+  $('prev').disabled=cur===0; $('next').disabled=cur===ORDER.length-1;
+  $('dots').innerHTML=''; ORDER.forEach((_,i)=>{const d=document.createElement('span');d.textContent=i+1;
+    d.className=(answers[i]!==null?'a ':'')+(i===cur?'c':''); d.onclick=()=>{cur=i;render();}; $('dots').appendChild(d);});
+}
+$('prev').onclick=()=>{if(cur>0){cur--;render();}};
+$('next').onclick=()=>{if(cur<ORDER.length-1){cur++;render();}};
+$('submit').onclick=()=>{const n=answers.filter(a=>a===null).length;
+  if(confirm(n?`${n} question(s) unanswered. Submit anyway?`:'Submit your test now?')) submit('Submitted by student');};
+
+function submit(reason){
+  if(finished) return; finished=true; running=false; clearInterval(tick);
+  stream?.getTracks().forEach(t=>t.stop()); $('pip').style.display='none'; $('shield').classList.remove('on');
+  let correct=0; ORDER.forEach((o,n)=>{ if(answers[n]===QUIZ.questions[o.i].answer) correct++; });
+  student.score=correct; student.total=ORDER.length; student.reason=reason; student.at=new Date().toLocaleString();
+  $('score').textContent=`${correct} / ${ORDER.length}`;
+  $('doneInfo').textContent=`${reason} · ${incidents.length} incident(s) recorded · ${student.at}`;
+  $('incList').innerHTML = incidents.length? '' : '<p class="note">No incidents.</p>';
+  incidents.forEach(x=>{const d=document.createElement('div');d.className='inc';
+    d.innerHTML=(x.img?`<img src="${x.img}">`:'')+`<div><b>${x.time}</b> · Q${x.question}<br></div>`;
+    d.lastChild.append(x.msg); $('incList').appendChild(d);});
+  show('s-done');
+}
+
+/* ================= REPORT ================= */
+$('dl').onclick=()=>{
+  const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const rows=ORDER.map((o,n)=>{const q=QUIZ.questions[o.i];const a=answers[n];
+    return `<tr><td>${n+1}</td><td>${esc(q.q)}</td><td>${a===null?'—':esc(q.options[a])}</td><td>${a===q.answer?'✔':'✘'}</td></tr>`;}).join('');
+  const inc=incidents.map(x=>`<div style="display:inline-block;margin:6px;width:200px;vertical-align:top">${x.img?`<img src="${x.img}" width="200">`:''}<br><b>${x.time}</b> Q${x.question}<br>${esc(x.msg)}</div>`).join('')||'None';
+  const html=`<!DOCTYPE html><meta charset="utf-8"><title>${esc(student.id)} report</title><body style="font-family:sans-serif;max-width:900px;margin:auto">
+<h2>${esc(QUIZ.title)} — Exam Guard report</h2>
+<p><b>Name:</b> ${esc(student.name)}<br><b>Student ID:</b> ${esc(student.id)}<br><b>Score:</b> ${student.score}/${student.total}<br>
+<b>Finished:</b> ${esc(student.at)} (${esc(student.reason)})<br><b>Incidents:</b> ${incidents.length}</p>
+<h3>Incidents</h3>${inc}<h3>Answers</h3><table border="1" cellpadding="6" style="border-collapse:collapse">
+<tr><th>#</th><th>Question</th><th>Answer given</th><th></th></tr>${rows}</table></body>`;
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+  a.download=`${student.id}_${(QUIZ.title||'test').replace(/\W+/g,'_')}_report.html`; a.click();
+};
+
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
